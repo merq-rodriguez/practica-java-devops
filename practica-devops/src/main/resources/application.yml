@@ -1,0 +1,38 @@
+## practica pragma devops
+spring:
+  profiles:
+    active: dev
+---
+spring:
+  profiles: dev
+  datasource:
+    host: ${HOST:10.125.64.99}
+    port: ${PORT:33061}
+    url: jdbc:mysql://${spring.datasource.host}:${spring.datasource.port}/devopsdb?useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC
+    username: ${USER:root}
+    password: ${PASSWORD:root}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL5InnoDBDialect
+server:
+  port: 8090
+---
+spring:
+  profiles: prod
+  datasource:
+    host: ${HOST:10.125.64.99}
+    port: ${PORT:33061}
+    url: jdbc:mysql://${spring.datasource.host}:${spring.datasource.port}/devopsdb?useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC
+    username: ${USER:root}
+    password: ${PASSWORD:root}
+  jpa: 
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL5InnoDBDialect
+server:
+  port: 8091

@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  dbmysql01:
+    image: mysql:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_PASSWORD: root
+    expose:
+        - "33061"
+    ports:
+        - "33061:3306"
+    volumes:
+     - F:/vols/practica_devops/mysql_01:/var/lib/mysql
+     - F:/cursos/practica_devops/practica-java-devops/mysql-dump:/docker-entrypoint-initdb.d
+    network_mode: bridge

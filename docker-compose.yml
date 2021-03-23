@@ -1,0 +1,35 @@
+version: '3'
+
+services:
+  dbmysql01:
+    image: mysql:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_PASSWORD: root
+    expose:
+        - "33061"
+    ports:
+        - "33061:3306"
+    volumes:
+     - $HOME/vols/devops_practica/mysql01:/var/lib/mysql
+     - $HOME/vols/devops_practica/practica-java-devops/mysql-dump:/docker-entrypoint-initdb.d
+    network_mode: bridge
+  devops01:
+    build:
+      dockerfile: dockerfile
+      context: .
+      args:
+        VAR_PROFILE: dev
+    restart: on-failure
+    environment:
+      - HOST=10.125.64.99
+      - PORT=33061
+      - USER=root
+      - PASSWORD=root
+    expose:
+      - "8092"
+    ports:
+      -  "8092:8090"
+    depends_on:
+      - dbmysql01

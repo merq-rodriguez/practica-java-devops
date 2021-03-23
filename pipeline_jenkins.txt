@@ -1,0 +1,102 @@
+def qualityGateValidation(qg) {
+    if(qg.status != 'OK') {
+        emailext body: "La Cobertura del escaneo es menor a 70%", subject: "Error Sonar Scan,   Quality Gate", to: "${EMAIL_ADDRESS}"
+        return true
+    }
+    emailext body: "La Cobertura del escaneo es mas del 70% - SUCCESS", subject: "Info - Ejecucion pipeline", to: "${EMAIL_ADDRESS}"
+    return false
+}
+
+pipeline {
+   agent any
+   tools {
+       maven 'mavenTool'
+   }
+   
+   environment {
+       PRAGMA_USER = "gustavo.rodriguez"
+       PROJECT_NAME = "practica-devops"
+       PROJECT_ROOT = "${PROJECT_NAME}/"
+       EMAIL_ADDRESS = "gustavo.rodriguez@pragma.com.co"
+       REGISTRY = "txvoz/devops"
+       REGISTRY_CREDENTIAL = "dockerhub"
+   }
+   
+   stages {
+      
+      stage('checkout') {
+         steps {
+            checkout([$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'pragma-gitlab', url: 'https://gustavo.rodriguez@git.pragma.com.co/gustavo.rodriguez/practica-java-devops.git']]])
+            sh "cd \$(pwd); git fetch; git pull origin master; "
+         }
+      }
+      
+      stage('build'){
+          steps{
+              sh "mvn -f ${PROJECT_ROOT} clean install -DskinTest"
+          }
+      }
+      
+      stage('scan'){
+          environment {
+              scannerHome = tool 'sonar-scanner'
+          }
+          steps{
+              withSonarQubeEnv('sonarqube') {
+                  sh "${scannerHome}/bin/sonar-scanner \
+      	                -Dsonar.projectKey=practicaJava:Test \
+ 	                    -Dsonar.projectName=practicaJava \
+ 	                    -Dsonar.projectVersion=0.${BUILD_NUMBER} \
+      	                -Dsonar.sources=${PROJECT_ROOT}/src/main \
+      	                -Dsonar.language=java \
+      	                -Dsonar.java.binaries=./${PROJECT_ROOT}/target/classes \
+      	                -Dsonar.java.test.binaries=${PROJECT_ROOT}/src/test/java \
+      	                -Dsonar.junit.reportPaths=./${PROJECT_ROOT}/target/surefire-reports \
+      	      	        -Dsonar.coverage.jacoco.xmlReportPaths=./${PROJECT_ROOT}/target/site/jacoco/jacoco.xml \
+      	                -Dsonar.java.coveragePlugin=jacoco"
+
+              }
+              timeout(time: 10, unit: 'MINUTES') {
+                  waitForQualityGate abortPipeline: qualityGateValidation(waitForQualityGate()) 
+              }
+          }
+      }
+      
+      stage('build-image'){
+          steps{
+              //sh "mvn -f ${PROJECT_ROOT} clean install docker:build "
+              sh "pwd"
+              sh "cd ${PROJECT_ROOT}target; mv ${PROJECT_NAME}.jar ../../docker/"
+              sh "cd ../../";
+              sh "pwd"
+              sh "cd \$(pwd)/docker; docker build -t ${REGISTRY}:${BUILD_NUMBER} . "
+              //sh "docker push ${REGISTRY}:${BUILD_NUMBER} "
+          }
+      }
+      
+      stage('deploy'){
+          environment{
+              VAR_PROFILE = "dev"
+              APP_CONTAINER_NAME = "devApp"
+              DB_HOST = "10.125.64.99"
+              DB_USER = "root"
+              DB_PASSWORD = "root"
+              DB_PORT = 33061
+              PORT = 8090
+          }
+          steps{
+              sh "docker run \
+                  --name ${APP_CONTAINER_NAME}${BUILD_NUMBER} \
+                  -d \
+                  -e VAR_PROFILE=${VAR_PROFILE} \
+                  -e HOST=${DB_HOST} \
+                  -e USER=${DB_USER} \
+                  -e PASSWORD=${DB_PASSWORD} \
+                  -e PORT=${DB_PORT} \
+                  -p ${PORT}:8090 \
+                  ${REGISTRY}:${BUILD_NUMBER}"
+          }
+      }
+      
+   }
+}
